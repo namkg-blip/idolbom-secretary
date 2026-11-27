@@ -119,6 +119,7 @@ $("makePlan").onclick = () => {
     rows.map((r) => `<tr><td>${r.date} (${({ mon: "월", tue: "화", wed: "수", thu: "목", fri: "금" })[r.dow]})</td><td>${esc(r.child)}</td><td>${r.start} ~ ${r.end}</td><td>${r.together.join(", ")}</td></tr>`).join("") + `</table>`;
   $("rateInputs").innerHTML = fam.children.map((c) => `<label>${esc(c.name)} 시간당 본인부담(원) <input type="number" min="0" step="10" data-rate="${esc(c.name)}"></label>`).join("");
   $("feeBox").hidden = false; $("downloads").hidden = false; $("feeOut").textContent = "";
+  $("copyFill").disabled = false; $("dlFill").disabled = false; $("fillOut").textContent = "";
 };
 document.addEventListener("input", (e) => {
   if (!e.target.dataset.rate || !lastPlan) return;
@@ -137,6 +138,20 @@ $("dlIcs").onclick = () => lastPlan && download("idolbom.ics", toICS(lastPlan.ro
 $("dlJson").onclick = () => lastPlan && download("idolbom-plan.json", JSON.stringify(lastPlan, null, 1), "application/json");
 $("dlCsv").onclick = () => lastPlan && download("idolbom-plan.csv",
   "﻿날짜,아이,시작,끝,동시돌봄\n" + lastPlan.rows.map((r) => [r.date, r.child, r.start, r.end, r.together.join(" ")].join(",")).join("\n"), "text/csv");
+
+// 누리집 입력 도우미: 도우미 코드 뒤에 이번 신청표를 붙여 한 번에 실행되게 만든다
+async function fillScript() {
+  const helper = await (await fetch("idolbom-fill.js")).text();
+  const rows = lastPlan.rows.map(({ date, child, start, end }) => ({ date, child, start, end }));
+  return `${helper}\nidolbomFill(${JSON.stringify({ rows })}).then((r) => console.log(r));\n`;
+}
+$("copyFill").onclick = async () => {
+  if (!lastPlan) return;
+  const text = await fillScript();
+  try { await navigator.clipboard.writeText(text); $("fillOut").textContent = `신청 ${lastPlan.rows.length}건이 담긴 도우미를 복사했습니다. 누리집 정기신청 화면의 Console에 붙여 넣으세요.`; }
+  catch (e) { download("idolbom-fill.js", text, "text/javascript"); $("fillOut").textContent = "복사가 막혀 파일로 내려받았습니다. 파일 내용을 Console에 붙여 넣으세요."; }
+};
+$("dlFill").onclick = async () => lastPlan && download("idolbom-fill.js", await fillScript(), "text/javascript");
 
 // 시작
 const now = new Date();
